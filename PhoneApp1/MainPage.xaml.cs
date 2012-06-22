@@ -14,6 +14,7 @@ using Microsoft.Phone.Tasks;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using Newtonsoft.Json;
 
 namespace PhoneApp1
 {
@@ -27,126 +28,100 @@ namespace PhoneApp1
 
         private void PhoneApplicationPage_Loaded(object sender, RoutedEventArgs e)
         {
-            LocalUrl = "https://localhost/account/logon";
+            LocalUrl = "http://jabbr.net/";
 
-            browser.NavigationFailed += new System.Windows.Navigation.NavigationFailedEventHandler(browser_NavigationFailed);
             browser.Navigated += new EventHandler<System.Windows.Navigation.NavigationEventArgs>(browser_Navigated);
-            browser.Navigating += new EventHandler<NavigatingEventArgs>(browser_Navigating);
             browser.IsScriptEnabled = true;
 
-            browser.Navigate(new Uri(Uri.EscapeUriString("https://JabbR.rpxnow.com//openid/v2/signin?token_url=" + LocalUrl), UriKind.Absolute));
+            //browser.Navigate(new Uri(Uri.EscapeUriString("https://jabbr.rpxnow.com//openid/v2/signin?token_url=" + LocalUrl), UriKind.Absolute));
             //browser.Navigate(new Uri(Uri.EscapeUriString("https://JanrainWP7Test.rpxnow.com/openid/embed?token_url=" + "http://localhost/account/logon"), UriKind.Absolute));
+
+            var html = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name=""MobileOptimized"" content=""width"" />
+    <meta name=""HandheldFriendly"" content=""true"" />
+    <meta name=""MobileOptimized"" content=""320"" />
+    <meta name=""Viewport"" content=""width=320; initial-scale=1.0"" />
+    <meta charset=""utf-8"" />
+</head>
+<body>
+    <script type=""text/javascript"">
+        (function () {
+            if (typeof window.janrain !== 'object') window.janrain = {};
+            if (typeof window.janrain.settings !== 'object') window.janrain.settings = {};
+
+            janrain.settings.tokenUrl = 'http://jabbr.net/auth/login.ashx';
+
+            function isReady() {
+                janrain.ready = true;
+            };
+            if (document.addEventListener) {
+                document.addEventListener(""DOMContentLoaded"", isReady, false);
+            } else {
+                window.attachEvent('onload', isReady);
+            }
+
+            var e = document.createElement('script');
+            e.type = 'text/javascript';
+            e.id = 'janrainAuthWidget';
+
+            if (document.location.protocol === 'https:') {
+                e.src = 'https://rpxnow.com/js/lib/jabbr/engage.js';
+            } else {
+                e.src = 'http://widget-cdn.rpxnow.com/js/lib/jabbr/engage.js';
+            }
+
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(e, s);
+        })();
+</script>
+    
+    <a class=""janrainEngage"" id=""janrainSignIn"" href=""#"" style=""margin-top:-1000px;""></a>
+
+<script type=""text/javascript"">
+    function fireClick() {
+        var elem = ""janrainSignIn"";
+        if(typeof elem == ""string"") elem = document.getElementById(elem);
+        if(!elem) return;
+
+        if(document.dispatchEvent) {   // W3C
+            var oEvent = document.createEvent( ""MouseEvents"" );
+            oEvent.initMouseEvent(""click"", true, true,window, 1, 1, 1, 1, 1, false, false, false, false, 0, elem);
+            elem.dispatchEvent( oEvent );
+        }
+        else if(document.fireEvent) {   // IE
+            elem.click();
         }
 
-        void browser_Navigating(object sender, NavigatingEventArgs e)
-        {
-            if (e.Uri.ToString() == LocalUrl)
-            {
-            }
+        var janrain = document.getElementById(""janrainModal"");
+        janrain.style.top = ""0px"";
+        janrain.style.marginTop = ""10px"";
+    }
+
+    setTimeout(""fireClick()"", 1500);
+</script>
+</body>
+</html>
+";
+
+            browser.NavigateToString(html);
         }
 
         void browser_Navigated(object sender, System.Windows.Navigation.NavigationEventArgs e)
         {
             if (e.Uri.ToString() == LocalUrl)
             {
+                var jabbrState = JsonConvert.DeserializeObject<JabbrState>(browser.GetCookies()["jabbr.state"].Value);
             }
-        }
-
-        void browser_NavigationFailed(object sender, System.Windows.Navigation.NavigationFailedEventArgs e)
-        {
-            if (e.Uri.ToString() == LocalUrl)
-            {
-                var html = browser.SaveToString();
-                var tokenStart = "<INPUT id=token name=token value=";
-
-                var token = html.Substring(html.IndexOf(tokenStart) + tokenStart.Length);
-                token = token.Substring(0, token.IndexOf(' '));
-
-                object profileData = GetProfileData(token);
-            }
-        }
-
-        private object GetProfileData(string token)
-        {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://jabbr.net/Auth/Login.ashx");
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
-            string data = "token=" + token;
-
-            request.BeginGetRequestStream(getResultCallback =>
-                {
-                    using (var requestStream = request.EndGetRequestStream(getResultCallback))
-                    {
-                        using (var requestWriter = new StreamWriter(requestStream))
-                        {
-                            requestWriter.Write(data);
-                            requestWriter.Flush();
-                        }
-                    }
-
-                    request.BeginGetResponse(getResponseCallback =>
-                        {
-                            var responseStream = request.EndGetResponse(getResponseCallback);
-
-                            using (var responseReader = new StreamReader(responseStream.GetResponseStream()))
-                            {
-                                string responseString = responseReader.ReadToEnd();
-                            }
-
-                        }, null);
-                }, null);
-
-            return null;
-
-
-            //string apikey = "5859eaa07ba12e0dc2872d1c03be9528c58bfcc1";
-
-            //string data = "token=" + token + "&apiKey=" + apikey;
-            //Uri url = new Uri(@"https://rpxnow.com/api/v2/auth_info");
-
-            //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            //request.Method = "POST";
-            //request.ContentType = "application/x-www-form-urlencoded";
-
-            //request.BeginGetRequestStream(getResultCallback =>
-            //    {
-            //        using (var requestStream = request.EndGetRequestStream(getResultCallback))
-            //        {
-            //            //using (var requestWriter = new StreamWriter(requestStream))
-            //            //{
-            //            //    requestWriter.Write(StringToAscii(data));
-            //            //}
-            //            var bytes = StringToAscii(data);
-            //            requestStream.Write(bytes, 0, bytes.Length);
-            //        }
-
-            //        request.BeginGetResponse(getResponseCallback =>
-            //            {
-            //                var responseStream = request.EndGetResponse(getResponseCallback);
-
-            //                using (var responseReader = new StreamReader(responseStream.GetResponseStream()))
-            //                {
-            //                    string responseString = responseReader.ReadToEnd();
-            //                }
-
-            //                }, null);
-            //    }, null);
-
-            //return null; 
-        }
-
-        public static byte[] StringToAscii(string s)
-        {
-            byte[] retval = new byte[s.Length];
-            for (int ix = 0; ix < s.Length; ++ix)
-            {
-                char ch = s[ix];
-                if (ch <= 0x7f) retval[ix] = (byte)ch;
-                else retval[ix] = (byte)'?';
-            }
-            return retval;
         }
 
         public string LocalUrl { get; set; }
+    }
+
+    public class JabbrState
+    {
+        public string userId { get; set; }
     }
 }
